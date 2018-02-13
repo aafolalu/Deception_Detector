@@ -1,5 +1,3 @@
-# coding: utf-8
-
 import csv                               # csv reader
 from sklearn.svm import LinearSVC
 from random import shuffle
@@ -7,20 +5,21 @@ from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics import average_precision_score, recall_score, accuracy_score, f1_score
 from nltk import *
-#from nltk.corpus import stopwords
 
 
-# load data from a file and append it to the rawData
+# load data from a file and append it to the rawData and preprocessedData list
 
 def loadData(path, Text=None):
     with open(path) as f:
         reader = csv.reader(f, delimiter='\t')
+        next(reader)
         for line in reader:
             (Id, Text, Rating, Verified, Category, Label) = parseReview(line)
             rawData.append((Id, Text, Rating, Verified, Category, Label))
             preprocessedData.append((Id, preProcess(Text), Rating, Verified, Category, Label))
 
 
+# splits data into two parts with a specified percentage as trainData and the rest as testData
 
 def splitData(percentage):
     dataSamples = len(rawData)
@@ -40,11 +39,7 @@ def splitData(percentage):
 
 
 
-################
-## QUESTION 1 ##
-################
-
-# Convert line from input file into an id/text/label tuple; index:0/8/1
+# Convert line from input file into an id/text/label/rating/verified/category tuple; index:0/8/1/2/3/4
 def parseReview(reviewLine):
     # Should return a triple of an integer, a string containing the review, and a string indicating the label
     list = []
@@ -60,27 +55,24 @@ def parseReview(reviewLine):
 # Input: a string of one review
 def preProcess(text):
     # Should return a list of tokens
-    vectorizer = CountVectorizer(ngram_range=(1,2), min_df=0.9, max_df=5)  # instance CountVectorizer class
+    vectorizer = CountVectorizer(ngram_range=(1,4), min_df=0.9, max_df=5)  # instance CountVectorizer class, with parameters: bigram and filter tokens with count between 0.9 to 5
     vectorizer.fit_transform([text]) #extract bag of words representation
     y = vectorizer.get_feature_names() #output list of tokens
-    #filtered_words = list(filter(lambda word: word not in stopwords.words('english'), y))
     return y
 
 
 
-################
-## QUESTION 2 ##
-################
 featureDict = {} # A global dictionary of features
 
 def percentage(count, total):
+    # computes the frequency of token out of the total corpus
     return 100 * count / total
 
 
 def toFeatureVector(tokens):
-    # Should return a dictionary containing features as keys, and weights as values
+    # returns a dictionary containing tokens as keys, and weights (frequency) as values
     d = {x: percentage(tokens.count(x), len(tokens)) for x in tokens}
-    featureDict.update(d)
+    featureDict.update(d) # adds local dictionary to a global dictionary
     return d
 
 
@@ -91,10 +83,6 @@ def trainClassifier(trainData):
     return SklearnClassifier(pipeline).train(trainData)
 
 
-
-################
-## QUESTION 3 ##
-################
 
 def crossValidate(dataset, folds):
     shuffle(dataset)
@@ -113,7 +101,7 @@ def crossValidate(dataset, folds):
         #print(y_pred)
 
         j += 1
-        #model performance metrics
+        # model performance metrics
         acc = accuracy_score(y_actual, y_pred)
         #avg_pre = average_precision_score(y_actual, y_pred)
         recall_1 = recall_score(y_actual, y_pred, average='weighted')
@@ -137,7 +125,6 @@ def predictLabel(reviewSample, classifier):
 
 
 
-
 # MAIN
 
 # loading reviews
@@ -147,10 +134,10 @@ trainData = []        # the training data as a percentage of the total dataset (
 testData = []         # the test data as a percentage of the total dataset (currently 20%, or 4200 samples)
 
 
-# references to the data files
+# dataset path
 reviewPath = '/Users/adebisiafolalu/Desktop/OneDrive/Documents/MSc_Assignments/Semester2/NLP/assignment1/Deception_Detector/amazon_reviews.txt'
 
-## Do the actual stuff
+
 # We parse the dataset and put it in a raw data list
 print("Now %d rawData, %d trainData, %d testData" % (len(rawData), len(trainData), len(testData)),
       "Preparing the dataset...",sep='\n')
@@ -161,9 +148,12 @@ loadData(reviewPath)
 print("Now %d rawData, %d trainData, %d testData" % (len(rawData), len(trainData), len(testData)),
       "Preparing training and test data...",sep='\n')
 splitData(0.8)
+
+
 # We print the number of training samples and the number of features
 print("Now %d rawData, %d trainData, %d testData" % (len(rawData), len(trainData), len(testData)),
       "Training Samples: ", len(trainData), "Features: ", len(featureDict), sep='\n')
+
 
 cv_results = crossValidate(trainData, 10)
 print(cv_results)
